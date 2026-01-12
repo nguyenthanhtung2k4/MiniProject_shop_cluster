@@ -171,7 +171,7 @@ pm.execute_notebook(
 
         K_MIN=2,
         K_MAX=10,
-        N_CLUSTERS=4,
+        N_CLUSTERS=3,
         RANDOM_STATE=42,
 
         OUTPUT_CLUSTER_PATH="data/processed/customer_clusters_advanced.csv",

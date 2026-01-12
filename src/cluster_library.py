@@ -17,7 +17,7 @@ import seaborn as sns
 from scipy import stats
 from mlxtend.frequent_patterns import apriori, fpgrowth, association_rules
 from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn.metrics import silhouette_score
 from sklearn.decomposition import PCA, TruncatedSVD
 import plotly.express as px
@@ -1490,6 +1490,29 @@ class RuleBasedCustomerClusterer:
     ) -> np.ndarray:
         """Fit KMeans và trả về labels."""
         self.model_ = KMeans(n_clusters=int(n_clusters), n_init="auto", random_state=random_state)
+        labels = self.model_.fit_predict(X)
+        return labels
+
+    def fit_agglomerative(
+        self,
+        X: np.ndarray,
+        n_clusters: int,
+        linkage: str = "ward",
+        metric: str = "euclidean",
+    ) -> np.ndarray:
+        """Fit Agglomerative Clustering và trả về labels.
+        
+        Lưu ý: AgglomerativeClustering với linkage='ward' chỉ hỗ trợ metric='euclidean'.
+        """
+        if linkage == "ward" and metric != "euclidean":
+            print("Warning: linkage='ward' only supports euclidean metric. Forcing metric='euclidean'.")
+            metric = "euclidean"
+            
+        self.model_ = AgglomerativeClustering(
+            n_clusters=int(n_clusters),
+            linkage=linkage,
+            metric=metric
+        )
         labels = self.model_.fit_predict(X)
         return labels
 

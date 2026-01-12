@@ -45,7 +45,8 @@ def extract_notebook_output(notebook_path):
 def main():
     notebooks = [
         ("Baseline (Rules Only)", "notebooks/runs/clustering_from_rules_baseline_run.ipynb"),
-        ("Advanced (Rules + RFM)", "notebooks/runs/clustering_from_rules_advanced_run.ipynb")
+        ("Advanced (Rules + RFM, KMeans)", "notebooks/runs/clustering_from_rules_advanced_run.ipynb"),
+        ("Advanced (Rules + RFM, Hierarchical)", "notebooks/runs/clustering_from_rules_hierarchical_run.ipynb")
     ]
 
     print("=== SO SÁNH KẾT QUẢ PHÂN CỤM ===\n")

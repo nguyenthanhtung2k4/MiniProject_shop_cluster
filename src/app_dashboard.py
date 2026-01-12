@@ -4,6 +4,7 @@ import sys
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
+import plotly.express as px
 
 # Add src to path if needed (though running from root usually works)
 if "src" not in sys.path:
@@ -62,7 +63,49 @@ st.sidebar.info(
 
 # --- MAIN CONTENT ---
 
-# 1. Cluster Stats
+# A. DASHBOARD TỔNG QUAN (VISUALIZATION)
+st.header("📊 Tổng quan Phân bố Khách hàng")
+
+col_left, col_right = st.columns([1, 1])
+
+with col_left:
+    st.subheader("Tỷ lệ quy mô các cụm")
+    # Pie chart
+    cluster_counts = cluster_df['cluster'].value_counts().reset_index()
+    cluster_counts.columns = ['cluster', 'count']
+    cluster_counts['cluster_label'] = cluster_counts['cluster'].apply(lambda x: f"Cụm {x}")
+    
+    fig_pie = px.pie(cluster_counts, values='count', names='cluster_label', 
+                     title='Tỷ lệ khách hàng theo cụm', hole=0.4)
+    st.plotly_chart(fig_pie, use_container_width=True)
+
+with col_right:
+    st.subheader("Đặc điểm RFM trung bình theo cụm")
+    # Group by cluster and calc mean
+    rfm_mean = cluster_df.groupby('cluster')[['Recency', 'Frequency', 'Monetary']].mean().reset_index()
+    rfm_mean_melted = rfm_mean.melt(id_vars='cluster', var_name='Metric', value_name='Value')
+    
+    # Bar chart (Normalized view is better usually, but raw is ok for massive diffs)
+    # Vì Monetary chênh lệch quá lớn, ta nên vẽ riêng hoặc scale. Ở đây vẽ riêng Recency và Frequency.
+    
+    tab1, tab2 = st.tabs(["Recency & Frequency", "Monetary (Chi tiêu)"])
+    
+    with tab1:
+        fig_bar1 = px.bar(rfm_mean_melted[rfm_mean_melted['Metric'].isin(['Recency', 'Frequency'])], 
+                          x='cluster', y='Value', color='Metric', barmode='group',
+                          title="So sánh R và F trung bình")
+        st.plotly_chart(fig_bar1, use_container_width=True)
+        
+    with tab2:
+        fig_bar2 = px.bar(rfm_mean_melted[rfm_mean_melted['Metric'] == 'Monetary'], 
+                          x='cluster', y='Value', color='Metric', 
+                          title="So sánh Chi tiêu (Monetary)", color_discrete_sequence=['#2ca02c'])
+        st.plotly_chart(fig_bar2, use_container_width=True)
+
+st.markdown("---")
+
+# B. CHI TIẾT CỤM
+st.header("🔍 Phân tích Chi tiết từng Cụm")
 st.subheader(f"Tổng quan Cụm {selected_cluster}")
 
 subset = cluster_df[cluster_df['cluster'] == selected_cluster]
@@ -121,18 +164,60 @@ with st.spinner("Đang phân tích luật (có thể mất vài giây lần đ�
     else:
         st.warning("Không merge được dữ liệu feature cho cụm này.")
 
-# 3. Recomendation Strategy
-st.subheader("💡 Đề xuất chiến lược")
+# 3. Recomendation Strategy & Profiling
+st.subheader("💡 Phân tích & Đề xuất chiến lược")
+
+# Tính chỉ số trung bình của cụm hiện tại
 r = subset['Recency'].mean()
 f = subset['Frequency'].mean()
 m = subset['Monetary'].mean()
 
-if m > cluster_df['Monetary'].mean() * 1.5:
-    st.success("**Chiến lược VIP:** Đây là nhóm khách hàng chi tiêu mạnh. Hãy cung cấp dịch vụ CSKH ưu tiên, quà tặng premium, và giới thiệu các sản phẩm high-end mới nhất.")
-elif r > 100:
-    st.warning("**Chiến lược Re-activation:** Nhóm này đã lâu không quay lại. Cần gửi email 'We miss you' kèm voucher giảm giá sâu hoặc free shipping để kéo họ lại.")
-elif f > cluster_df['Frequency'].mean():
-    st.info("**Chiến lược Loyalty:** Khách mua thường xuyên. Hãy khuyến khích họ tham gia chương trình tích điểm hoặc giới thiệu bạn bè (Referral).")
+# Tính chỉ số trung bình toàn cục
+global_r = cluster_df['Recency'].mean()
+global_f = cluster_df['Frequency'].mean()
+global_m = cluster_df['Monetary'].mean()
+
+r_ratio = r / global_r
+f_ratio = f / global_f
+m_ratio = m / global_m
+
+st.markdown("#### So sánh với trung bình toàn sàn:")
+col1, col2, col3 = st.columns(3)
+col1.metric("So với R trung bình", f"{r_ratio:.2f}x", delta_color="inverse") # R càng thấp càng tốt
+col2.metric("So với F trung bình", f"{f_ratio:.2f}x")
+col3.metric("So với M trung bình", f"{m_ratio:.2f}x")
+
+# Logic gán nhãn tự động
+labels = []
+strategies = []
+
+if m_ratio > 1.5:
+    labels.append("💰 Big Spender (Chi tiêu khủng)")
+    strategies.append("- **VIP Care:** Cần chăm sóc đặc biệt, tặng quà tri ân.")
+    strategies.append("- **Upsell:** Giới thiệu các bộ sưu tập giá trị cao (High-ticket items).")
+elif m_ratio < 0.5:
+    labels.append("💸 Low Spender (Chi tiêu thấp)")
+    strategies.append("- **Price Sensitivity:** Tập trung vào các sản phẩm giảm giá, combo tiết kiệm.")
+
+if f_ratio > 1.5:
+    labels.append("🔄 Loyal Customer (Mua thường xuyên)")
+    strategies.append("- **Loyalty Program:** Khuyến khích tham gia tích điểm, giới thiệu bạn bè.")
+elif f_ratio < 0.8:
+    labels.append("🛒 Occasional (Khách vãng lai)")
+
+if r_ratio > 1.5:
+    labels.append("💤 Dormant/Churn Risk (Nguy cơ rời bỏ)")
+    strategies.append("- **Re-activation:** Gửi email 'We miss you' kèm voucher hạn chót để kéo khách quay lại ngay.")
+elif r_ratio < 0.6:
+    labels.append("🔥 Active (Đang hoạt động mạnh)")
+    strategies.append("- **Engagement:** Duy trì tương tác qua thông báo sản phẩm mới.")
+
+st.markdown(f"**Nhãn định danh:** {' | '.join(labels) if labels else 'Khách hàng trung bình'}")
+
+if strategies:
+    st.markdown("**Chiến lược đề xuất:**")
+    for s in strategies:
+        st.markdown(s)
 else:
-    st.write("Nhóm khách hàng phổ thông. Nên tập trung vào các chương trình khuyến mãi đại trà hoặc Bundle các sản phẩm họ hay mua (xem bảng luật ở trên).")
+    st.info("Nhóm khách hàng này có chỉ số khá sát với trung bình. Nên áp dụng các chiến dịch marketing đại trà (Mass Marketing).")
 
