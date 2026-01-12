@@ -122,18 +122,50 @@ pm.execute_notebook(
 
 
 # run_clustering_from_rules.py
+# run_clustering_from_rules.py - EXPERIMENT 1: BASELINE (Rules Only, Binary)
+print("Running Clustering Experiment 1: Baseline (Rules only, Binary)...")
 pm.execute_notebook(
     "notebooks/clustering_from_rules.ipynb",
-    "notebooks/runs/clustering_from_rules_run.ipynb",
+    "notebooks/runs/clustering_from_rules_baseline_run.ipynb",
     parameters=dict(
         CLEANED_DATA_PATH="data/processed/cleaned_uk_data.csv",
         RULES_INPUT_PATH="data/processed/rules_apriori_filtered.csv",
 
         TOP_K_RULES=200,
         SORT_RULES_BY="lift",
-        WEIGHTING="lift",
+        WEIGHTING="none",       # Baseline: Binary (0/1)
         MIN_ANTECEDENT_LEN=1,
-        USE_RFM=True,
+        USE_RFM=False,          # Baseline: No RFM
+        RFM_SCALE=False,
+        RULE_SCALE=False,       # Binary features usually don't need scaling if only rules
+
+        K_MIN=2,
+        K_MAX=10,
+        N_CLUSTERS=None,
+        RANDOM_STATE=42,
+
+        OUTPUT_CLUSTER_PATH="data/processed/customer_clusters_baseline.csv",
+
+        PROJECTION_METHOD="pca",
+        PLOT_2D=True,
+    ),
+    kernel_name="python3",
+)
+
+# run_clustering_from_rules.py - EXPERIMENT 2: ADVANCED (Rules Weighted + RFM)
+print("Running Clustering Experiment 2: Advanced (Rules Weighted + RFM)...")
+pm.execute_notebook(
+    "notebooks/clustering_from_rules.ipynb",
+    "notebooks/runs/clustering_from_rules_advanced_run.ipynb",
+    parameters=dict(
+        CLEANED_DATA_PATH="data/processed/cleaned_uk_data.csv",
+        RULES_INPUT_PATH="data/processed/rules_apriori_filtered.csv",
+
+        TOP_K_RULES=200,
+        SORT_RULES_BY="lift",
+        WEIGHTING="lift",       # Advanced: Weighted by Lift
+        MIN_ANTECEDENT_LEN=1,
+        USE_RFM=True,           # Advanced: Combine with RFM
         RFM_SCALE=True,
         RULE_SCALE=False,
 
@@ -142,7 +174,7 @@ pm.execute_notebook(
         N_CLUSTERS=None,
         RANDOM_STATE=42,
 
-        OUTPUT_CLUSTER_PATH="data/processed/customer_clusters_from_rules.csv",
+        OUTPUT_CLUSTER_PATH="data/processed/customer_clusters_advanced.csv",
 
         PROJECTION_METHOD="pca",
         PLOT_2D=True,
