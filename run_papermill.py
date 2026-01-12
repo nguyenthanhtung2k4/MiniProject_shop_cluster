@@ -167,11 +167,11 @@ pm.execute_notebook(
         MIN_ANTECEDENT_LEN=1,
         USE_RFM=True,           # Advanced: Combine with RFM
         RFM_SCALE=True,
-        RULE_SCALE=False,
+        RULE_SCALE=True,
 
         K_MIN=2,
         K_MAX=10,
-        N_CLUSTERS=None,
+        N_CLUSTERS=4,
         RANDOM_STATE=42,
 
         OUTPUT_CLUSTER_PATH="data/processed/customer_clusters_advanced.csv",
@@ -182,4 +182,36 @@ pm.execute_notebook(
     kernel_name="python3",
 )
 
-print("Đã chạy xong pipeline")
+
+# run_clustering_from_rules.py - EXPERIMENT 3: ADVANCED HIERARCHICAL (Agglomerative)
+print("Running Clustering Experiment 3: Advanced Hierarchical (Agglomerative)...")
+pm.execute_notebook(
+    "notebooks/clustering_from_rules.ipynb",
+    "notebooks/runs/clustering_from_rules_hierarchical_run.ipynb",
+    parameters=dict(
+        CLEANED_DATA_PATH="data/processed/cleaned_uk_data.csv",
+        RULES_INPUT_PATH="data/processed/rules_apriori_filtered.csv",
+
+        TOP_K_RULES=200,
+        SORT_RULES_BY="lift",
+        WEIGHTING="lift",       
+        MIN_ANTECEDENT_LEN=1,
+        USE_RFM=True,           
+        RFM_SCALE=True,
+        RULE_SCALE=False,
+
+        K_MIN=2,
+        K_MAX=10,
+        N_CLUSTERS=None,
+        RANDOM_STATE=42,
+        ALGO="agglomerative",   # Experiment 3: Agglomerative
+
+        OUTPUT_CLUSTER_PATH="data/processed/customer_clusters_hierarchical.csv",
+
+        PROJECTION_METHOD="pca",
+        PLOT_2D=True,
+    ),
+    kernel_name="python3",
+)
+
+print("Đã chạy xong toàn bộ pipeline experiments!")
