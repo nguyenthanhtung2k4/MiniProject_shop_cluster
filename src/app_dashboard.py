@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
 
+# streamlit run app_dashboard.py
+
 # Add src to path if needed (though running from root usually works)
 if "src" not in sys.path:
     sys.path.append("src")

@@ -37,29 +37,55 @@ Quy trình được tự động hóa hoàn toàn bằng Papermill:
 4.  **Optimizing K:** Sử dụng phương pháp Elbow và Silhouette Score để xác định số lượng cụm tối ưu.
 5.  **Profiling:** Phân tích đặc điểm từng cụm và lên chiến lược.
 
-### 2.1. Minh họa Luật làm "Nguyên liệu" đầu vào
-Theo yêu cầu, nhóm chọn Top-200 luật có **Lift cao nhất** (sắp xếp giảm dần) để đảm bảo tính liên kết mạnh mẽ. Dưới đây là 5 luật tiêu biểu trong tập dữ liệu (Bộ sưu tập gia vị Herb Marker):
+### 2.1. Feature Engineering: Từ Luật đến Vector Đặc Trưng
+Theo yêu cầu, nhóm đã xây dựng **2 biến thể đặc trưng** để so sánh hiệu quả:
+
+1.  **Biến thể 1 (Baseline): Binary Rules Only**
+    - Mỗi khách hàng được biểu diễn bằng vector $V = [r_1, r_2, ..., r_k]$ với $r_i \in \{0, 1\}$.
+    - $r_i = 1$ nếu khách hàng mua đủ các sản phẩm trong vế trái (Antecedent) của luật thứ $i$.
+    - **Ưu điểm:** Đơn giản, dễ hiểu.
+    - **Nhược điểm:** Không phân biệt được mức độ "mê" sản phẩm (mua 1 lần vs mua 10 lần giống nhau).
+
+2.  **Biến thể 2 (Advanced - Chosen): Weighted Rules + RFM**
+    - **Weighted Rules:** Thay vì 0/1, giá trị $r_i$ được gán bằng **Lift** của luật đó.
+        - *Lý do:* Luật có Lift cao (70-80) mang lại thông tin về "sở thích đặc biệt" mạnh hơn luật có Lift thấp.
+    - **RFM Augmentation:** Ghép thêm 3 chỉ số Recency - Frequency - Monetary (đã được Scaled bằng StandardScaler) vào vector luật.
+    - **Mục đích:** Vừa hiểu được **HÀNH VI MUA CÁI GÌ** (từ Rules) vừa hiểu được **GIÁ TRỊ KHÁCH HÀNG** (từ RFM).
+
+### 2.2. Quy trình Lựa chọn Luật (Rule Filtering)
+Để đảm bảo chất lượng input cho phân cụm, nhóm không lấy toàn bộ hàng nghìn luật sinh ra mà lọc theo quy trình:
+1.  **Thuật toán:** Apriori (min_support=0.01).
+2.  **Top-K Selection:** Chọn **200 luật** có **Lift cao nhất**.
+3.  **Lý do chọn Top-200:** Thử nghiệm cho thấy nếu dùng quá ít (<50), thông tin quá thưa thớt. Nếu dùng quá nhiều (>500), vector bị nhiễu (curse of dimensionality) mà không tăng thêm độ tách biệt rõ rệt.
+
+#### Cấu hình chi tiết (Parameters):
+| Tham số | Giá trị | Mô tả |
+| :--- | :--- | :--- |
+| `MIN_SUPPORT` | 0.01 | Ngưỡng hỗ trợ tối thiểu (1%) |
+| `MAX_LEN` | 3 | Độ dài tối đa của luật |
+| `METRIC` | lift | Tiêu chí đánh giá chính |
+| `MIN_THRESHOLD` | 1.0 | Ngưỡng lift tối thiểu |
+| `FILTER_MIN_CONF` | 0.3 | Độ tin cậy tối thiểu (30%) |
+| `FILTER_MIN_LIFT` | 1.2 | Lọc các luật có lift < 1.2 |
+| `FILTER_MAX_ANTECEDENTS` | 2 | Tối đa 2 sản phẩm vế trái |
+| `FILTER_MAX_CONSEQUENTS` | 1 | Tối đa 1 sản phẩm vế phải |
+
+#### Top 10 Luật tiêu biểu (High Lift Rules)
+Dưới đây là danh sách 10 luật có điểm Lift cao nhất, được ưu tiên làm đặc trưng chính phương phân cụm:
 
 | Antecedents (Mua) | Consequents (Thì cũng mua) | Support | Confidence | Lift |
 | :--- | :--- | :---: | :---: | :---: |
-| *HERB MARKER ROSEMARY* | *HERB MARKER THYME* | 1.15% | 96.1% | **76.9** |
-| *HERB MARKER THYME* | *HERB MARKER ROSEMARY* | 1.15% | 90.9% | **76.9** |
-| *HERB MARKER PARSLEY* | *HERB MARKER ROSEMARY* | 1.10% | 87.5% | **73.1** |
-| *HERB MARKER THYME* | *HERB MARKER PARSLEY* | 1.10% | 87.0% | **68.7** |
-| *HERB MARKER BASIL* | *HERB MARKER THYME* | 1.05% | 92.1% | **72.8** |
-| *HERB MARKER CHIVES* | *HERB MARKER PARSLEY* | 1.02% | 92.0% | **72.8** |
-| *HERB MARKER MINT* | *HERB MARKER THYME* | 1.00% | 91.5% | **71.5** |
-| *HERB MARKER MINT* | *HERB MARKER ROSEMARY* | 1.01% | 89.4% | **72.2** |
-| *HERB MARKER PARSLEY* | *HERB MARKER THYME* | 1.10% | 85.0% | **68.7** |
-| *HERB MARKER ROSEMARY* | *HERB MARKER PARSLEY* | 1.10% | 83.3% | **73.1** |
+| *HERB MARKER PARSLEY, HERB MARKER ROSEMARY* | *HERB MARKER THYME* | 1.09% | 95.2% | **74.6** |
+| *HERB MARKER MINT, HERB MARKER THYME* | *HERB MARKER ROSEMARY* | 1.06% | 95.5% | **74.5** |
+| *HERB MARKER MINT, HERB MARKER THYME* | *HERB MARKER PARSLEY* | 1.04% | 94.0% | **74.3** |
+| *HERB MARKER PARSLEY, HERB MARKER THYME* | *HERB MARKER ROSEMARY* | 1.09% | 95.2% | **74.2** |
+| *HERB MARKER BASIL, HERB MARKER THYME* | *HERB MARKER ROSEMARY* | 1.07% | 95.1% | **74.2** |
+| *HERB MARKER BASIL, HERB MARKER ROSEMARY* | *HERB MARKER THYME* | 1.07% | 93.7% | **73.4** |
+| *HERB MARKER MINT, HERB MARKER ROSEMARY* | *HERB MARKER THYME* | 1.06% | 93.2% | **73.0** |
+| *HERB MARKER MINT, HERB MARKER ROSEMARY* | *HERB MARKER PARSLEY* | 1.05% | 92.2% | **72.9** |
+| *HERB MARKER BASIL, HERB MARKER THYME* | *HERB MARKER PARSLEY* | 1.04% | 92.1% | **72.8** |
+| *HERB MARKER CHIVES* | *HERB MARKER PARSLEY* | 1.04% | 92.1% | **72.8** |
 
-*Nhận xét:* Các luật này có Lift rất cao (>60) và Confidence gần như tuyệt đối (>85%), cho thấy hành vi mua trọn bộ sưu tập là rất rõ ràng. Đây là cơ sở vững chắc để phân cụm.
-2.  **Feature Engineering:**
-    - *Baseline:* Binary Features (0/1) - chỉ xét luật.
-    - *Advanced:* Weighted Features (Lift) + Scaled RFM.
-3.  **Modeling:** Thử nghiệm K-Means và Hierarchical Clustering với K thay đổi từ 2 đến 10.
-4.  **Optimizing K:** Sử dụng phương pháp Elbow và Silhouette Score để xác định số lượng cụm tối ưu.
-5.  **Profiling:** Phân tích đặc điểm từng cụm và lên chiến lược.
 
 ---
 
@@ -67,30 +93,28 @@ Theo yêu cầu, nhóm chọn Top-200 luật có **Lift cao nhất** (sắp xế
 
 Trong quá trình thực nghiệm, chúng tôi đứng trước một bài toán đánh đổi kinh điển giữa **Điểm số Toán học** và **Giá trị Kinh doanh**.
 
-### 📊 Bảng kết quả thực nghiệm
+### 3.1. So sánh Hệ thống (Systematic Comparison)
 
-| Kịch bản | Số cụm (K) | Silhouette Score | Phân bổ mẫu (Size) | Kết luận sơ bộ |
+Chúng tôi đã thực chạy thực nghiệm trên 5 kịch bản khác nhau để tìm ra cấu hình tối ưu. Dưới đây là kết quả thực tế (chạy trên toàn bộ dữ liệu):
+
+| Kịch bản (Scenario) | K | Silhouette | Phân bổ mẫu (Cluster Sizes) | Đánh giá |
 | :--- | :---: | :---: | :--- | :--- |
-| **Hierarchical (Rule+RFM)** | **2** | **0.85 (Best)** | Cụm 0: 3787 | Phân cụm "Hoàn hảo" về mặt toán học nhưng **vô dụng** về mặt kinh doanh. |
-| | | | Cụm 1: 134 | (Chỉ tách được Top 3% VIP, gộp 97% còn lại vào chung 1 nhóm). |
-| **K-Means (Rule+RFM)** | **3** | **0.51** | Cụm 0: 3400 | **Điểm cân bằng (Sweet Spot).** |
-| | | | Cụm 2: 397 | Tách được nhóm "Tiềm năng" ra khỏi nhóm "Vãng lai". |
-| | | | Cụm 1: 124 | Vẫn giữ được nhóm VIP cốt lõi. |
+| **1. K-Means (Binary Rules)** | 3 | 0.483 | C0: 3536, C1: 125, C2: 260 | **Baseline.** Tách tạm ổn nhưng điểm thấp nhất. |
+| **2. K-Means (Weighted Rules)** | 3 | **0.583** | C0: 3602, C1: 124, C2: 195 | **Tốt.** Việc thêm trọng số Lift giúp cụm rõ nét hơn hẵn. |
+| **3. K-Means (Hybrid: Rule+RFM)** | 3 | 0.581 | C0: 3602, C1: 124, C2: 195 | **Được chọn.** Điểm tương đương kịch bản 2 nhưng có thêm thông tin RFM để làm giàu bài toán Profiling. |
+| **4. Hierarchical (Weighted+RFM)** | 3 | 0.575 | C0: 134, C1: 3636, C2: 151 | **Công bằng.** Khi ép K=3, Hierarchical cho kết quả *kém hơn* K-Means một chút. |
+| **5. Hierarchical (Weighted+RFM)** | 2 | **0.850** | C0: 3787, C1: 134 | **Toán học tốt nhất.** Silhouette rất cao nhưng phân cụm cực đoan (1 nhóm VIP nhỏ vs cả thế giới còn lại). |
 
-### 💡 Tại sao chúng tôi TỪ CHỐI K=2 (dù điểm cao nhất)?
-Nếu chọn **K=2** (theo gợi ý của Silhouette), chúng ta có 2 nhóm:
-1.  **VIP (134 khách):** Mua £16k/năm.
-2.  **Khách thường (3787 khách):** Một tập hợp hỗn độn khổng lồ.
+### 3.2. Biện luận: Tại sao chọn K-Means (K=3) thay vì Hierarchical (K=2)?
 
-**Vấn đề:** Doanh nghiệp không thể áp dụng cùng một chiến lược cho 3787 người này. Trong đó lẫn lộn giữa *người mua đều đặn hàng tháng* và *người đã 6 tháng không quay lại*.
+Nhìn bảng trên, kịch bản số 5 (Hierarchical, K=2) có điểm số áp đảo (0.85). Tuy nhiên, nhóm quyết định **TỪ CHỐI** kết quả này và chọn **Kịch bản 3 (K-Means, K=3)** vì lý do Business:
 
-### ✅ Tại sao K=3 là chân ái?
-Khi thử nghiệm tăng lên **K=3**, thuật toán đã thực hiện một cú tách ngoạn mục trong nhóm "Khách thường":
+1.  **Vấn đề của K=2 (Hierarchical):** Nó chỉ tách được 134 khách hàng "Siêu VIP" ra khỏi 3787 khách hàng còn lại. Doanh nghiệp không thể áp dụng *một chiến lược duy nhất* cho 3787 người này (bao gồm cả người mới, người cũ, người sắp rời bỏ). Đây là mô hình "Lười biếng" (Lazy clustering).
+2.  **Sức mạnh của K=3 (K-Means):** Mô hình này bóc tách được nhóm 3787 người kia thành 2 phần:
+    - **Nhóm Vãng lai (Mass):** ~3600 người.
+    - **Nhóm Tiềm năng (Rising Stars):** ~195 người. Đây là nhóm quan trọng nhất để upsell mà mô hình K=2 đã bỏ sót.
 
-- **Cụm Vãng lai (ngủ đông):** 3400 khách. Đặc điểm bi đát: **Recency ~100 ngày** (hơn 3 tháng chưa mua), Frequency thấp (3.6 lần).
-- **Cụm Trung thành (Loyal):** 397 khách. Đặc điểm tuyệt vời: **Recency ~34 ngày** (mới mua tháng trước!), Frequency cao gấp đôi (8 lần).
-
-**Kết luận:** Nếu chọn K=2, ta sẽ đánh đồng 397 khách hàng trung thành này với nhóm khách ngủ đông, dẫn đến nguy cơ bỏ quên chăm sóc và mất họ (Churn). Việc chấp nhận giảm Silhouette (0.85 -> 0.51) để đổi lấy việc **nhận diện được nhóm Loyal** là một sự đánh đổi hoàn toàn xứng đáng.
+$\rightarrow$ **Kết luận:** Chấp nhận giảm điểm Silhouette từ 0.85 xuống 0.58 để đổi lấy một tập khách hàng được phân khúc chi tiết và "Actionable" hơn.
 
 ---
 
@@ -117,20 +141,20 @@ Biểu đồ cho thấy sự khác biệt rõ rệt về hành vi Recency và Ch
 
 ### 💎 Cụm 1: The VIP Wholesalers (Nhà Buôn / VIP)
 - **Quy mô:** ~3% (124 khách).
-- **Chỉ số:** Chi tiêu khủng khiếp (**£17,365**).
-- **Hành vi (Rules):** Nhóm này mua theo lô, số lượng lớn và thường mua trọn bộ sưu tập (Lift > 60).
-- **Chiến lược:** *Partnership*. Xem họ như đối tác bán buôn hơn là khách lẻ. Cung cấp chiết khấu theo volume.
+- **Chỉ số:** Chi tiêu cực khủng (**£17,000+**). Recency thấp.
+- **Hành vi (Rules):** Mua sỉ. 90% các luật mua trọn bộ sưu tập (Herb Marker, Pantry Design) đều rơi vào nhóm này.
+- **Chiến lược:** *Partnership & Exclusive*. Cung cấp chiết khấu B2B, mời tham gia sự kiện ra mắt sản phẩm kín.
 
-### 🌟 Cụm 2: The Rising Stars (Ngôi Sao Đang Lên)
-- **Quy mô:** ~10% (397 khách).
-- **Chỉ số:** Đây là nhóm có sức mua "ACTIVE" nhất (**Recency = 34 ngày**, tốt hơn cả VIP). Chi tiêu khá tốt (£3,800).
-- **Hành vi:** Mua thường xuyên các món đồ gia dụng/trang trí nhỏ.
-- **Chiến lược:** *Nurturing*. Đây là nhóm cần được "nuôi dưỡng" để trở thành VIP trong tương lai. Tặng điểm thưởng, free-ship để khuyến khích họ mua thêm 1-2 lần nữa.
+### 🌟 Cụm 2: The Rising Stars (Ngôi Sao Đang Lên / Tiềm Năng)
+- **Quy mô:** ~5% (195 khách).
+- **Chỉ số:** Nhóm này có hành vi lai. Không giàu như VIP nhưng mua sắm rất "có gu".
+- **Hành vi:** Thường kích hoạt các luật mua đồ trang trí nhỏ, quà tặng. Có tần suất quay lại cao hơn hẳn nhóm vãng lai.
+- **Chiến lược:** *Membership Upgrading*. Thúc đẩy họ đạt ngưỡng VIP bằng các thử thách mua sắm (Gamification).
 
-### 💤 Cụm 0: The Hibernating Masses (Đám Đông Ngủ Đông)
-- **Quy mô:** ~87% (3400 khách).
-- **Chỉ số:** Đáng báo động. **Recency > 3 tháng**. Giá trị đơn hàng thấp.
-- **Chiến lược:** *Win-back*. Đừng tốn quá nhiều ngân sách chăm sóc hàng ngày. Chỉ gửi email tự động vào các dịp Sale lớn để vớt vát.
+### 💤 Cụm 0: The Hibernating Masses (Đám Đông Vãng Lai)
+- **Quy mô:** ~92% (3602 khách).
+- **Chỉ số:** Giá trị thấp, Recency cao (lâu không mua).
+- **Chiến lược:** *Mass Promotion*. Sử dụng các deal giảm giá sốc (Flash Sale) để kích thích nhu cầu cơ bản. Không nên tốn chi phí chăm sóc 1-1.
 
 ---
 
@@ -138,14 +162,7 @@ Biểu đồ cho thấy sự khác biệt rõ rệt về hành vi Recency và Ch
 
 Để đáp ứng các yêu cầu chuyên sâu của dự án (mục tiêu xuất sắc), nhóm đã thực hiện thêm các nghiên cứu so sánh mở rộng:
 
-### 5.1. So sánh Thuật toán: K-Means vs Agglomerative Hierarchical
-Nhóm đã thử nghiệm thêm thuật toán **Agglomerative Clustering** (Linkage: Ward, Metric: Euclidean).
-
-| Tiêu chí | K-Means (K=3) | Agglomerative (K=2) | Đánh giá |
-| :--- | :--- | :--- | :--- |
-| **Silhouette Score** | 0.51 (Trung bình) | **0.85 (Rất tốt)** | Agglomerative có xu hướng tạo ra các cụm có kích thước chênh lệch lớn (1 cụm rất to, 1 cụm rất nhỏ) nên điểm Silhouette thường cao hơn. |
-| **Mức độ cân bằng** | Tốt. Các nhóm có kích thước hợp lý để quản lý. | Kém. Bị lệch (Skewed clusters). |
-| **Khả năng hành động** | **Cao (High Actionability)** | **Thấp.** Chỉ chăm sóc được VIP, bỏ rơi phần lớn khách hàng. |
+*(Phần này đã được tích hợp vào bảng so sánh tổng hợp ở mục 3.1)*
 
 ### 5.2. Góc nhìn Marketing: Customer Clustering vs Rule Clustering
 Ngoài việc phân cụm khách hàng, nhóm cũng đã cân nhắc hướng tiếp cận **Phân cụm Luật (Rule Clustering)**:

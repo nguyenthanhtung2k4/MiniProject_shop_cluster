@@ -1,0 +1,6 @@
+Scenario,Algorithm,K,Silhouette,Calinski-Harabasz,Distribution,Actionable?
+Binary Rules Only (K=3),kmeans,3,0.483,854.0,"C0:3536, C1:125, C2:260",Yes
+Weighted Rules (Lift) (K=3),kmeans,3,0.583,3568.5,"C0:3602, C1:124, C2:195",Yes
+[Proposed] Hybrid (Weighted+RFM) (K=3),kmeans,3,0.581,3566.0,"C0:3602, C1:124, C2:195",Yes
+Hierarchical (Weighted+RFM) (K=3),agglomerative,3,0.575,3365.0,"C0:134, C1:3636, C2:151",Yes
+Hierarchical (Weighted+RFM) (K=2),agglomerative,2,0.85,5869.1,"C0:3787, C1:134",Yes
